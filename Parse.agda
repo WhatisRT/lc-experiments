@@ -19,9 +19,6 @@ ParseErr = String
 Parse : Set → Set
 Parse A = String → (A × String) ⊎ ParseErr
 
-Err : Set → Set
-Err A = A ⊎ String
-
 runParse : Parse A → String → A ⊎ ParseErr
 runParse p s = case p s of λ where
   (inj₁ (a , "")) → inj₁ a
@@ -46,6 +43,10 @@ f <$> x = x >>= (return ∘ f)
 
 _>>_ : Parse A → Parse B → Parse B
 x >> y = x >>= (λ _ → y)
+
+sequence : List (Parse A) → Parse (List A)
+sequence [] = return []
+sequence (x ∷ l) = x >>= λ a → (a ∷_) <$> sequence l
 
 void : Parse A → Parse ⊤
 void p = p >> return _
@@ -81,6 +82,9 @@ noneOf cs = parseIfTrue (not ∘ _∈ᵇ cs)
 -- parse a single given character
 exact : Char → Parse Char
 exact c = oneOf [ c ]
+
+exactS : String → Parse String
+exactS s = fromList <$> sequence (Data.List.map exact (toList s))
 
 {-# TERMINATING #-}
 many : Parse A → Parse (List A)
