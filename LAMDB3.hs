@@ -1,15 +1,13 @@
 module LAMDB3 where
 
-import LAM.Base hiding (HeapPointer, Environment, Control, Stack, State)
-import LAM.Parse
+import Data.IORef
+import LAM.Base hiding (HeapPointer, Environment, Stack, State)
+import LAM.IsDBEnv
+import LAM.Print
 import LAM.Trim
 import LAMDB hiding (HeapPointer, Environment, Stack, State, mark2)
-import LAM.Print
 import Trie.Map (Trie)
 import qualified Trie.Map as Trie
-
-import System.IO.Unsafe
-import Data.IORef
 
 type HeapPointer t = RHeapPointer IORef DBTTerm0 t
 type Environment t = REnvironment IORef DBTTerm0 t
@@ -23,7 +21,8 @@ convHeap' h = map (\(Ref a, c) -> (Ref a, fmap convClosure'' c)) h
 
 convClosure'' :: RClosure Ref DBTTerm0 NamedList -> RClosure Ref Term Trie
 convClosure'' (Closure t (NamedList e)) =
-  Closure (fromDBTermCtx (map fst e) $ fromDBTTerm0 t) (Trie.fromList $ reverse $ map (\(n, r) -> (n, convRef r)) e)
+  Closure (fromDBTermCtx id (map fst e) $ fromDBTTerm0 t)
+          (Trie.fromList $ reverse $ map (\(n, r) -> (n, convRef r)) e)
 
 convState'' :: RState Ref DBTTerm0 NamedList -> RState Ref Term Trie
 convState'' (c, s) = (convClosure'' c, map (fmap convRef) s)
@@ -42,9 +41,9 @@ instance PrintableState (State NamedList) where
     return (LAMDB3.convHeap' h', convState'' s')
 
 mkClosure :: IsDBEnv t => DBTrim DBTTerm0 -> Environment t -> Closure DBTTerm0 t
-mkClosure t e = case trimEnv (fst t) e of
-  (Just e') -> Closure { t = snd t , env = e' }
-  Nothing -> error ("mkClosure: " ++ show t ++ "\nEnvironment length: " ++ show (LAMDB.length e))
+mkClosure (Trimmer0 x, t) e = case trimEnv x e of
+  (Just e') -> Closure t e'
+  Nothing -> error ("mkClosure: " ++ show t ++ "\nEnvironment length: " ++ show (LAM.IsDBEnv.length e))
 
 mark3 :: IsDBEnv t => State t -> IO (Either String (State t))
 mark3 (Closure (DBTVar x) e, s) = case lookupI x e of

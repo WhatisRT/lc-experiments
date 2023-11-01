@@ -29,12 +29,13 @@ instance Arbitrary Term where
           in oneof (if | null c -> intro
                        | length c > s' -> varDep
                        | otherwise -> intro ++ varDep)
-  shrink = filter isClosed . genericShrink
+  -- FIXME: doesn't work because of missing Arbitrary Void
+  --shrink = filter isClosed . genericShrink
 
 roundtrip f g t = t == f (g t)
 
 roundtripToDB :: Term -> Bool
-roundtripToDB = roundtrip fromDBTerm toDBTerm
+roundtripToDB = roundtrip fromDBTerm (toDBTerm id)
 
 roundtripToDBT0 :: Term -> Bool
 roundtripToDBT0 = roundtrip termFromDBTTerm0 termToDBTTerm0

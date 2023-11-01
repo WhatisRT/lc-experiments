@@ -20,7 +20,7 @@ whitespace1 = skipMany1 space
 sepBy1' :: Parse a -> Parse b -> Parse [a]
 sepBy1' pa pb = do
   a <- pa
-  as <- many (try (do pb; pa))
+  as <- many (try (pb >> pa))
   return (a : as)
 
 parseName :: Parse Name
@@ -43,8 +43,7 @@ parseTerm1 = parseLet <|> parseLam <|> between (string "(") (string ")") parseTe
 
     parseLam :: Parse Term
     parseLam = do
-      string "λ"
-      whitespace1
+      string "λ" >> whitespace1
       n <- parseName
       string "." >> whitespace1
       t <- parseTerm
@@ -52,8 +51,7 @@ parseTerm1 = parseLet <|> parseLam <|> between (string "(") (string ")") parseTe
 
     parseLet :: Parse Term
     parseLet = do
-      try (string "let")
-      whitespace1
+      try (string "let") >> whitespace1
       n <- parseName
       whitespace1 >> string "=" >> whitespace1
       t <- parseTerm
@@ -87,6 +85,7 @@ defs =  "let zero = λ z. λ s. z                                               
       \in "
 
 fromRight :: Either a b -> b
+fromRight (Left _) = undefined
 fromRight (Right b) = b
 
 

@@ -1,34 +1,106 @@
-{-# LANGUAGE LambdaCase, OverloadedStrings #-}
-{-# LANGUAGE AllowAmbiguousTypes, FunctionalDependencies #-}
+{-# LANGUAGE UndecidableInstances, LambdaCase, OverloadedStrings, AllowAmbiguousTypes #-}
+{-# LANGUAGE FunctionalDependencies, TypeFamilies, PatternSynonyms, StandaloneDeriving #-}
 module LAM.Base where
 
-import Text.Parsec
-import Data.Text (Text, pack, unpack)
-import Data.List
-import Data.Maybe
-import Trie.Map (Trie)
-import qualified Data.Map as Map
-
-import GHC.Generics
-import Data.List
 import Data.IORef
+import Data.List
+import Data.Text (Text, pack, unpack)
+import Data.Void
+import GHC.Generics
+import Text.Parsec
+import Trie.Map (Trie)
+import Util
 
+import qualified Data.Map as Map
 import qualified LC.Base as LC
+
+--------------------------------------------------------------------------------
 
 type Name = Text
 
-data Term
-  = Var Name
-  | Lam Name Term
-  | App Term Name
-  | Let [(Name, Term)] Term
-  deriving (Eq, Ord, Generic)
+type family XVar a
+type family XLet a
+type family XExt a
+
+data ETerm d
+  = Var (XVar d)
+  | Lam Name (ETerm d)
+  | App (ETerm d) (XVar d)
+  | XLet (XLet d) [(Name, ETerm d)] (ETerm d)
+  | Ext !(XExt d) -- strictness makes the pattern complete when this is empty
+  deriving Generic
+
+-- This is a lie, but the ones below don't work
+{-# COMPLETE Var, Lam, App, Let, Ext #-}
+
+pattern Let :: (XLet d ~ ()) => [(Name, ETerm d)] -> ETerm d -> ETerm d
+pattern Let x t = XLet () x t
+
+deriving instance (Eq (XVar a), Eq (XLet a), Eq (XExt a)) => Eq (ETerm a)
+deriving instance (Ord (XVar a), Ord (XLet a), Ord (XExt a)) => Ord (ETerm a)
+
+data Base
+type instance XVar Base = Name
+type instance XLet Base = ()
+type instance XExt Base = Void
+
+data DB
+type instance XVar DB = Int
+type instance XLet DB = ()
+type instance XExt DB = Void
+
+data BVCtrs = CstB Int | OpPB BVTerm BVTerm
+
+data BV
+type instance XVar BV = Name
+type instance XLet BV = ()
+type instance XExt BV = BVCtrs
+
+data BVDBCtrs = CstDBBV Int | RetDBBV | OpPDBBV
+  | CseDBBV BVDBTerm BVDBTerm -- case e of e', single constructor
+
+data BVDB
+type instance XVar BVDB = Int
+type instance XLet BVDB = ()
+type instance XExt BVDB = BVDBCtrs
+
+type Term = ETerm Base
+type DBTerm = ETerm DB
+type BVTerm = ETerm BV
+type BVDBTerm = ETerm BVDB
+
+-- This is a lie, but the ones below don't work
+--{-# COMPLETE Var, Lam, App, Let #-}
+
+
+-- type family F a
+
+-- data X a = P !(F a) | Q
+
+-- data T
+
+-- type instance F T = Void
+
+-- type Y = X T
+
+-- {-# complete Q' #-}
+
+-- pattern Q' :: Y
+-- pattern Q' = Q
+
+-- {-# COMPLETE Q :: Y #-}
+
+-- f :: Y -> Y
+-- f Q' = Q
+
+
 
 freeVars :: Term -> [Name]
 freeVars = nub . go []
   where
     addVar ctx x = if x `elem` ctx then [] else [x]
 
+    go :: [Name] -> Term -> [Name]
     go ctx (Var x)   = addVar ctx x
     go ctx (Lam x t) = go (x:ctx) t
     go ctx (App t x) = go ctx t ++ addVar ctx x
@@ -57,8 +129,6 @@ instance Show Term where
 
 newtype NamedList a = NamedList [(Name, a)]
   deriving (Functor, Foldable, Traversable, Show)
-
-type Control = Term
 
 data RClosure r term t = Closure { t :: term, env :: t (r (Maybe (RClosure r term t))) }
 
@@ -153,7 +223,7 @@ freshName n t = pack (n ++ show (helper t))
   where
     parseN :: Text -> Maybe Integer
     parseN s = case parse (string n >> parseNat) "" s of
-      (Left e)  -> Nothing
+      (Left _)  -> Nothing
       (Right i) -> Just i
 
     toNsuc :: Name -> Integer
@@ -163,7 +233,7 @@ freshName n t = pack (n ++ show (helper t))
 
     helper :: Term -> Integer
     helper (Var x)   = toNsuc x
-    helper (Lam x t) = helper t
+    helper (Lam _ t) = helper t
     helper (App t x) = max (helper t) (toNsuc x)
     helper (Let x t) = foldl max (helper t) (map (helper . snd) x)
 
@@ -186,52 +256,42 @@ withFix t = Let [ ("fix" , Lam "f" (Let [ ("fixf" , App (Var "fix") "f") ] (App 
 
 
 
-data DBTerm
-  = DBVar Int
-  | DBLam Name DBTerm
-  | DBApp DBTerm Int
-  | DBLet [(Name, DBTerm)] DBTerm
-
 instance Show DBTerm where
   show = show . fromDBTerm
 
-lookupList :: (Eq a) => Int -> [a] -> Maybe a
-lookupList x [] = Nothing
-lookupList x (a : as) = if x == 0 then Just a else lookupList (x-1) as
-
-lookup' :: (Eq a, Show a) => Int -> [a] -> a
-lookup' i l = case lookupList i l of
-  (Just x) -> x
-  Nothing  -> error ("lookup': " ++ show i ++ " " ++ show l)
-
-toDBTerm :: Term -> DBTerm
-toDBTerm = helper []
+toDBTerm :: (XVar d1 ~ Name, XVar d2 ~ Int, XLet d2 ~ (), XLet d1 ~ ())
+  => (XExt d1 -> XExt d2) -> ETerm d1 -> ETerm d2
+toDBTerm f = helper f []
   where
     toI :: [Name] -> Name -> Int
-    toI [] n       = undefined
+    toI [] _       = undefined
     toI (n' : l) n = if n == n' then 0 else (toI l n + 1)
 
-    helper :: [Name] -> Term -> DBTerm
-    helper l (Var n)   = DBVar (toI l n)
-    helper l (Lam n t) = DBLam n (helper (n : l) t)
-    helper l (App t n) = DBApp (helper l t) (toI l n)
-    helper l (Let x t) = let newCtx = map fst x ++ l
-      in DBLet (map (\(n, t) -> (n, helper newCtx t)) x) (helper newCtx t)
+    helper :: (XVar d1 ~ Name, XVar d2 ~ Int, XLet d2 ~ (), XLet d1 ~ ())
+      => (XExt d1 -> XExt d2) -> [Name] -> ETerm d1 -> ETerm d2
+    helper f l (Var n)   = Var (toI l n)
+    helper f l (Lam n t) = Lam n (helper f (n : l) t)
+    helper f l (App t n) = App (helper f l t) (toI l n)
+    helper f l (Let x t) = let newCtx = map fst x ++ l
+      in Let (map (\(n, t) -> (n, helper f newCtx t)) x) (helper f newCtx t)
+    helper f l (Ext x)   = Ext (f x)
 
 lookupVar :: [Name] -> Int -> Name
 lookupVar l i = case lookupList i l of
   (Just x) -> x
   Nothing  -> pack ("FV" ++ show (i - length l))
 
-fromDBTermCtx :: [Name] -> DBTerm -> Term
-fromDBTermCtx l (DBVar i)   = Var (lookupVar l i)
-fromDBTermCtx l (DBLam n t) = Lam n (fromDBTermCtx (n : l) t)
-fromDBTermCtx l (DBApp t i) = App (fromDBTermCtx l t) (lookupVar l i)
-fromDBTermCtx l (DBLet x t) = let newCtx = map fst x ++ l
-  in Let (map (\(n, t) -> (n, fromDBTermCtx newCtx t)) x) (fromDBTermCtx newCtx t)
+fromDBTermCtx :: (XVar d1 ~ Name, XVar d2 ~ Int, XLet d2 ~ (), XLet d1 ~ ())
+  => (XExt d2 -> XExt d1) -> [Name] -> ETerm d2 -> ETerm d1
+fromDBTermCtx _ l (Var i)   = Var (lookupVar l i)
+fromDBTermCtx f l (Lam n t) = Lam n (fromDBTermCtx f (n : l) t)
+fromDBTermCtx f l (App t i) = App (fromDBTermCtx f l t) (lookupVar l i)
+fromDBTermCtx f l (Let x t) = let newCtx = map fst x ++ l
+  in Let (map (\(n, t) -> (n, fromDBTermCtx f newCtx t)) x) (fromDBTermCtx f newCtx t)
+fromDBTermCtx f _ (Ext x) = Ext (f x)
 
 fromDBTerm :: DBTerm -> Term
-fromDBTerm = fromDBTermCtx []
+fromDBTerm = fromDBTermCtx id []
 
 freeIxs :: DBTerm -> [Int]
 freeIxs = nub . sort . helper
@@ -240,10 +300,10 @@ freeIxs = nub . sort . helper
     strengthenBy n l = map (\k -> k-n) (filter (\x -> not (elem x [0..n-1])) l)
 
     helper :: DBTerm -> [Int]
-    helper (DBVar i)   = [i]
-    helper (DBLam _ t) = strengthenBy 1 (helper t)
-    helper (DBApp t i) = i : helper t
-    helper (DBLet x t) = strengthenBy (length x) (concatMap (\(_,t) -> helper t) x ++ helper t)
+    helper (Var i)   = [i]
+    helper (Lam _ t) = strengthenBy 1 (helper t)
+    helper (App t i) = i : helper t
+    helper (Let x t) = strengthenBy (length x) (concatMap (\(_,t) -> helper t) x ++ helper t)
 
 mapFree :: (Int -> Int) -> DBTerm -> DBTerm
 mapFree f = go 0
@@ -251,23 +311,23 @@ mapFree f = go 0
     modI ctx i = if i < ctx then i else (f (i - ctx)) + ctx
 
     go :: Int -> DBTerm -> DBTerm
-    go ctx (DBVar i)   = DBVar (modI ctx i)
-    go ctx (DBLam n t) = DBLam n (go (ctx+1) t)
-    go ctx (DBApp t i) = DBApp (go ctx t) (modI ctx i)
-    go ctx (DBLet x t) = let ctx' = ctx+length x in
-      DBLet (map (\(n, t') -> (n, go ctx' t')) x) (go ctx' t)
+    go ctx (Var i)   = Var (modI ctx i)
+    go ctx (Lam n t) = Lam n (go (ctx+1) t)
+    go ctx (App t i) = App (go ctx t) (modI ctx i)
+    go ctx (Let x t) = let ctx' = ctx+length x in
+      Let (map (\(n, t') -> (n, go ctx' t')) x) (go ctx' t)
 
 data IsLAM m e s t = IsLAM { step :: s -> m (Either e s), initS :: t -> s }
 
 step' :: Monad m => IsLAM m e s t -> s -> m s
-step' l@(IsLAM step initS) s = do
+step' l@(IsLAM step _) s = do
   s' <- step s
   case s' of
     (Left _)    -> return s
     (Right s'') -> step' l s''
 
 runTrace :: Monad m => IsLAM m e s t -> s -> m [s]
-runTrace l@(IsLAM step initS) s = do
+runTrace l@(IsLAM step _) s = do
   s' <- step s
   case s' of
     (Left _)    -> return []
@@ -277,6 +337,4 @@ runTrace' :: Monad m => IsLAM m e s t -> t -> m [s]
 runTrace' l = runTrace l . initS l
 
 evalPrint :: Show s => IsLAM IO e s t -> t -> IO ()
-evalPrint l@(IsLAM step initS) t = do
-  s <- step' l (initS t)
-  putStrLn (show s)
+evalPrint l@(IsLAM _ initS) t = step' l (initS t) >>= print
