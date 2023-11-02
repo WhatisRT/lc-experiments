@@ -49,15 +49,52 @@ type instance XVar DB = Int
 type instance XLet DB = ()
 type instance XExt DB = Void
 
-data BVCtrs = CstB Int | OpPB BVTerm BVTerm
+data BVCtrs = CstB Int | OpPB BVTerm BVTerm | OPrB BVTerm
+
+pattern Cst :: (XExt d ~ BVCtrs) => Int -> ETerm d
+pattern Cst x = Ext (CstB x)
+
+pattern OpP :: (XExt d ~ BVCtrs) => BVTerm -> BVTerm -> ETerm d
+pattern OpP t t' = Ext (OpPB t t')
+
+pattern OPr :: (XExt d ~ BVCtrs) => BVTerm -> ETerm d
+pattern OPr t = Ext (OPrB t)
+
+data BVDBCtrs = CstDBBV Int | RetDBBV | OpPDBBV | OPrDBBV
+  | CseDBBV BVDBTerm BVDBTerm -- case e of e', single constructor
+
+pattern CstDB :: (XExt d ~ BVDBCtrs) => Int -> ETerm d
+pattern CstDB x = Ext (CstDBBV x)
+
+pattern RetDB :: (XExt d ~ BVDBCtrs) => ETerm d
+pattern RetDB = Ext RetDBBV
+
+pattern OpPDB :: (XExt d ~ BVDBCtrs) => ETerm d
+pattern OpPDB = Ext OpPDBBV
+
+pattern OPrDB :: (XExt d ~ BVDBCtrs) => ETerm d
+pattern OPrDB = Ext OPrDBBV
+
+pattern CseDB :: (XExt d ~ BVDBCtrs) => BVDBTerm -> BVDBTerm -> ETerm d
+pattern CseDB t t' = Ext (CseDBBV t t')
+
+convBVCtrs :: BVCtrs -> BVDBCtrs
+convBVCtrs (CstB x)    = CstDBBV x
+convBVCtrs (OpPB t t') = CseDBBV (toDB t) (Ext (CseDBBV (toDB t') OpPDB))
+  where toDB = toDBTerm convBVCtrs
+convBVCtrs (OPrB t)    = CseDBBV (toDB t) OPrDB
+  where toDB = toDBTerm convBVCtrs
+
+convBVCtrs' :: BVDBCtrs -> BVCtrs
+convBVCtrs' (CstDBBV x) = CstB x
+
+bvTest :: BVTerm
+bvTest = OPr (OpP (Cst 1) (Cst 2))
 
 data BV
 type instance XVar BV = Name
 type instance XLet BV = ()
 type instance XExt BV = BVCtrs
-
-data BVDBCtrs = CstDBBV Int | RetDBBV | OpPDBBV
-  | CseDBBV BVDBTerm BVDBTerm -- case e of e', single constructor
 
 data BVDB
 type instance XVar BVDB = Int
@@ -68,31 +105,6 @@ type Term = ETerm Base
 type DBTerm = ETerm DB
 type BVTerm = ETerm BV
 type BVDBTerm = ETerm BVDB
-
--- This is a lie, but the ones below don't work
---{-# COMPLETE Var, Lam, App, Let #-}
-
-
--- type family F a
-
--- data X a = P !(F a) | Q
-
--- data T
-
--- type instance F T = Void
-
--- type Y = X T
-
--- {-# complete Q' #-}
-
--- pattern Q' :: Y
--- pattern Q' = Q
-
--- {-# COMPLETE Q :: Y #-}
-
--- f :: Y -> Y
--- f Q' = Q
-
 
 
 freeVars :: Term -> [Name]
@@ -111,24 +123,36 @@ isClosed :: Term -> Bool
 isClosed = null . freeVars
 
 -- special function to show free variables
-showTermWithCtx :: (Name -> String) -> Term -> String
-showTermWithCtx showFree = go []
+showTermWithCtx :: (XVar d ~ Name, XLet d ~ ()) => (XExt d -> String) -> (Name -> String) -> ETerm d -> String
+showTermWithCtx f showFree = go [] f
   where
     showVar ctx x = if x `elem` ctx then unpack x else showFree x
 
-    go :: [Name] -> Term -> String
-    go ctx (Var x)   = showVar ctx x
-    go ctx (Lam x t) = "λ " ++ unpack x ++ ". " ++ go (x:ctx) t
-    go ctx (App t x) = "(" ++ go ctx t ++ " " ++ showVar ctx x ++ ")"
-    go ctx (Let x t) = let ctx' = map fst x ++ ctx in
-      "let " ++ concat (intersperse "; " (map (\(n, t) -> unpack n ++ " = " ++ go ctx' t) x))
-      ++ " in " ++ go ctx' t
+    go :: (XVar d ~ Name, XLet d ~ ()) => [Name] -> (XExt d -> String) -> ETerm d -> String
+    go ctx f (Var x)   = showVar ctx x
+    go ctx f (Lam x t) = "λ " ++ unpack x ++ ". " ++ go (x:ctx) f t
+    go ctx f (App t x) = "(" ++ go ctx f t ++ " " ++ showVar ctx x ++ ")"
+    go ctx f (Let x t) = let ctx' = map fst x ++ ctx in
+      "let " ++ concat (intersperse "; " (map (\(n, t) -> unpack n ++ " = " ++ go ctx' f t) x))
+      ++ " in " ++ go ctx' f t
+    go ctx f (Ext x) = f x
 
 instance Show Term where
-  show = showTermWithCtx unpack
+  show = showTermWithCtx absurd unpack
+
+instance Show BVCtrs where
+  show (CstB x)    = show x
+  show (OpPB t t') = show t ++ " + " ++ show t'
+  show (OPrB t)    = "print " ++ show t
+
+instance Show BVTerm where
+  show = showTermWithCtx show unpack
 
 newtype NamedList a = NamedList [(Name, a)]
   deriving (Functor, Foldable, Traversable, Show)
+
+data Tag a = P a | H a
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data RClosure r term t = Closure { t :: term, env :: t (r (Maybe (RClosure r term t))) }
 
@@ -247,9 +271,6 @@ toTerm (LC.Var n) = Var n
 toTerm (LC.Lam n t) = Lam n (toTerm t)
 toTerm (LC.App t t') = appT (toTerm t) (toTerm t')
 
-data Tag a = P a
-           | H a deriving (Eq, Show, Functor, Foldable, Traversable)
-
 
 withFix :: Term -> Term
 withFix t = Let [ ("fix" , Lam "f" (Let [ ("fixf" , App (Var "fix") "f") ] (App (Var "f") "fixf"))) ] t
@@ -258,6 +279,9 @@ withFix t = Let [ ("fix" , Lam "f" (Let [ ("fixf" , App (Var "fix") "f") ] (App 
 
 instance Show DBTerm where
   show = show . fromDBTerm
+
+instance Show BVDBTerm where
+  show = show . fromBVDBTerm
 
 toDBTerm :: (XVar d1 ~ Name, XVar d2 ~ Int, XLet d2 ~ (), XLet d1 ~ ())
   => (XExt d1 -> XExt d2) -> ETerm d1 -> ETerm d2
@@ -292,6 +316,9 @@ fromDBTermCtx f _ (Ext x) = Ext (f x)
 
 fromDBTerm :: DBTerm -> Term
 fromDBTerm = fromDBTermCtx id []
+
+fromBVDBTerm :: BVDBTerm -> BVTerm
+fromBVDBTerm = fromDBTermCtx convBVCtrs' []
 
 freeIxs :: DBTerm -> [Int]
 freeIxs = nub . sort . helper
