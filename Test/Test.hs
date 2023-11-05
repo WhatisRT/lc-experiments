@@ -1,13 +1,13 @@
-module Test where
-
-import Test.QuickCheck
+module Main where
 
 import LAM.Test
 
+import Test.QuickCheck
+
 doTest t = quickCheck (withMaxSuccess 10000 t)
 
-test :: IO ()
-test = do
+main :: IO ()
+main = do
   doTest roundtripToDB
   doTest roundtripToDBT0
   doTest roundtripToDBT1

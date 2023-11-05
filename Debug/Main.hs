@@ -1,17 +1,12 @@
-module Debug where
+module Main where
 
 import Control.Monad
-import LAM.Parse
-import LAM.IsLAM
-import LAM.Exec.NamedNoTrimPure
 import LAM.Exec.DBNoTrimPure
 import LAM.Exec.DBTrimPure
-import LAM.Base
+import LAM.Exec.NamedNoTrimPure
+import LAM.IsLAM
+import LAM.Parse
 import LAM.Print
-
-lamDebug = hsTermDebug
-
-
 
 -- compareLAMs :: (Show s, Show s', PrintableState s, PrintableState s')
 --             => IsLAM IO e s t -> IsLAM IO e s' t -> t -> IO Bool
@@ -46,6 +41,6 @@ compareLAMs l l' t = do
               -- collectHeap s2'' >>= print >> putStr "\n\n"
               error "Debug: not equal")
 
-debug :: IO ()
-debug = compareLAMs LAM.Exec.DBTrimPure.isLAMN LAM.Exec.NamedNoTrimPure.isLAM lamDebug
+main :: IO ()
+main = compareLAMs LAM.Exec.DBTrimPure.isLAMN LAM.Exec.NamedNoTrimPure.isLAM termDebug
   -- printTrace LAMDB.isLAM lamDebug
