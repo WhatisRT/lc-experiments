@@ -4,18 +4,16 @@ module LAM.Print where
 import LAM.Base
 
 import Control.Monad
-
+import Data.IORef
 import Data.List
 import Data.Text (unpack)
-import Data.IORef
+import Data.Void
 import System.IO.Unsafe
 
 import Trie.Map (Trie)
+import qualified Data.Map as Map
 import qualified Trie.Map as Trie
 
-import qualified Data.Map as Map
-
-import Util
 import Addr
 import Numeric
 
@@ -32,9 +30,9 @@ showClosurePretty
      (Name -> t (r (Maybe (RClosure r Term t))) -> Maybe a)
      -> RClosure r Term t -> String
 showClosurePretty lookup (Closure t env) =
-  flip showTermWithCtx t (\n -> unpack n ++ "[" ++ (case lookup n env of
+  showTermWithCtx absurd (\n -> unpack n ++ "[" ++ (case lookup n env of
                              Nothing  -> "UNKNOWN"
-                             (Just x) -> show x) ++ "]")
+                             (Just x) -> show x) ++ "]") t
 
 
 instance Show (Closure Term []) where

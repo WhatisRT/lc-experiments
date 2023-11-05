@@ -27,3 +27,6 @@ mark2 (Closure t@(Let x e) env, s) = do
 
 isLAM :: IsLAM IO String State Term
 isLAM = IsLAM { step = mark2, initS = \t -> (Closure t Trie.empty, []) }
+
+isLAMC :: IsLAM IO String State (Closure Term Trie.Trie)
+isLAMC = IsLAM { step = mark2, initS = \t -> (t, []) }

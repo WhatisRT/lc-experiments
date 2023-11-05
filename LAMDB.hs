@@ -6,7 +6,8 @@ import LAM.Parse
 import LAM.Print
 import LAM.IsDBEnv
 
-import Data.Text (pack)
+import Control.Monad
+import Data.Text (pack, unpack)
 import Data.IORef
 
 import Trie.Map (Trie)
@@ -64,6 +65,10 @@ mark2 (Closure t@(Let x e) env, s) = do
   mapM_ (\(n, r, t) -> writeIORef r (Just (Closure t env'))) ext
   return (Right (Closure e env', s))
 
+
+isLAMGC :: IsDBEnv t => IsLAM IO Err (State t) (Term, Trie.Trie (HeapPointer t))
+isLAMGC = IsLAM { step = mark2
+                , initS = \(t, e) -> (toClosure e t, []) }
 
 isLAMG :: IsDBEnv t => IsLAM IO Err (State t) Term
 isLAMG = IsLAM { step = mark2, initS = \t -> (Closure (toDBTerm id t) (fromList []), []) }

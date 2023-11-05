@@ -2,6 +2,7 @@
 {-# LANGUAGE FunctionalDependencies, TypeFamilies, PatternSynonyms, StandaloneDeriving #-}
 module LAM.Base where
 
+import Control.Monad
 import Data.IORef
 import Data.List
 import Data.Text (Text, pack, unpack)
@@ -9,6 +10,7 @@ import Data.Void
 import GHC.Generics
 import Text.Parsec
 import Trie.Map (Trie)
+import qualified Trie.Map as Trie
 import Util
 
 import qualified Data.Map as Map
@@ -169,6 +171,20 @@ type Stack = RStack IORef Term Trie
 
 type State = RState IORef Term Trie
 
+--------------------------------------------------------------------------------
+-- Manage environments
+
+lookupNs :: [Name] -> Trie a -> Either Name [(Name, a)]
+lookupNs vars e =
+  forM vars $ \n -> case Trie.lookup n e of
+    (Just r) -> return (n, r)
+    Nothing -> Left n
+
+unsafeLookupNs :: [Name] -> Trie a -> [(Name, a)]
+unsafeLookupNs vars e = case lookupNs vars e of
+  (Left n) -> error ("unsafeLookupNs: " ++ unpack n)
+  (Right l) -> l
+
 convClosureRef :: (Monad m, Traversable t, Traversable r')
                => (r (Maybe (RClosure r term t)) -> m (r' (Maybe (RClosure r term t))))
                -> RClosure r term t -> m (RClosure r' term t)
@@ -283,22 +299,22 @@ instance Show DBTerm where
 instance Show BVDBTerm where
   show = show . fromBVDBTerm
 
+toI :: [Name] -> Name -> Int
+toI [] _       = undefined
+toI (n' : l) n = if n == n' then 0 else (toI l n + 1)
+
+toDBTermCtx :: (XVar d1 ~ Name, XVar d2 ~ Int, XLet d2 ~ (), XLet d1 ~ ())
+  => (XExt d1 -> XExt d2) -> [Name] -> ETerm d1 -> ETerm d2
+toDBTermCtx f l (Var n)   = Var (toI l n)
+toDBTermCtx f l (Lam n t) = Lam n (toDBTermCtx f (n : l) t)
+toDBTermCtx f l (App t n) = App (toDBTermCtx f l t) (toI l n)
+toDBTermCtx f l (Let x t) = let newCtx = map fst x ++ l
+  in Let (map (\(n, t) -> (n, toDBTermCtx f newCtx t)) x) (toDBTermCtx f newCtx t)
+toDBTermCtx f l (Ext x)   = Ext (f x)
+
 toDBTerm :: (XVar d1 ~ Name, XVar d2 ~ Int, XLet d2 ~ (), XLet d1 ~ ())
   => (XExt d1 -> XExt d2) -> ETerm d1 -> ETerm d2
-toDBTerm f = helper f []
-  where
-    toI :: [Name] -> Name -> Int
-    toI [] _       = undefined
-    toI (n' : l) n = if n == n' then 0 else (toI l n + 1)
-
-    helper :: (XVar d1 ~ Name, XVar d2 ~ Int, XLet d2 ~ (), XLet d1 ~ ())
-      => (XExt d1 -> XExt d2) -> [Name] -> ETerm d1 -> ETerm d2
-    helper f l (Var n)   = Var (toI l n)
-    helper f l (Lam n t) = Lam n (helper f (n : l) t)
-    helper f l (App t n) = App (helper f l t) (toI l n)
-    helper f l (Let x t) = let newCtx = map fst x ++ l
-      in Let (map (\(n, t) -> (n, helper f newCtx t)) x) (helper f newCtx t)
-    helper f l (Ext x)   = Ext (f x)
+toDBTerm f = toDBTermCtx f []
 
 lookupVar :: [Name] -> Int -> Name
 lookupVar l i = case lookupList i l of

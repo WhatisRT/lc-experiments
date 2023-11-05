@@ -1,8 +1,12 @@
 module LAM.IsDBEnv where
 
+import Data.IORef
 import Data.Text (pack)
+import Data.Void
 import LAM.Base hiding (HeapPointer, Environment, Stack, State)
+import Trie.Map (Trie)
 import Util
+import qualified Trie.Map as Trie
 
 import Data.Sequence (Seq, (<|), (><))
 import qualified Data.Sequence as Sequence
@@ -32,7 +36,6 @@ instance IsDBEnv [] where
   app = (++)
   lookupI = Util.lookup
 
-
 instance IsDBEnv NamedList where
   fromList = NamedList
   length (NamedList l) = Prelude.length l
@@ -57,3 +60,15 @@ instance IsDBEnv Vector where
   uncons = undefined
   app = (Vec.++)
   lookupI = flip (Vec.!?)
+
+
+
+toClosure :: IsDBEnv t => Trie (RHeapPointer r DBTerm t) -> Term -> RClosure r DBTerm t
+toClosure e t = let vars = freeVars t in
+  Closure (toDBTermCtx id vars t) (fromList (unsafeLookupNs vars e))
+
+addToEnv :: IsDBEnv t => Name -> Term -> Trie (RHeapPointer IORef DBTerm t)
+         -> IO (Trie (RHeapPointer IORef DBTerm t))
+addToEnv n t e = do
+  r <- newIORef (Just $ toClosure e t)
+  return $ Trie.insert n r e
