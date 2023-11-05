@@ -7,10 +7,10 @@ import Debug
 import Test
 
 import LAM.Base
-import LAMDB3
-import LAMDB
+import LAM.IsLAM
+import LAM.Exec.DBTrimPure
 
-runOnce = evalPrint LAMDB3.isLAM lamBench
+runOnce = evalPrint isLAM lamBench
 
 data Opts = Opts
   { b :: Bool

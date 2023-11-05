@@ -1,7 +1,8 @@
-module LAM where
+module LAM.Exec.NamedNoTrimPure where
 
 import Data.IORef
 import LAM.Base
+import LAM.IsLAM
 import qualified Trie.Map as Trie
 
 mark2 :: State -> IO (Either String State)

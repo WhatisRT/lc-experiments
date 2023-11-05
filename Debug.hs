@@ -2,9 +2,10 @@ module Debug where
 
 import Control.Monad
 import LAM.Parse
-import LAM
-import LAMDB
-import LAMDB3
+import LAM.IsLAM
+import LAM.Exec.NamedNoTrimPure
+import LAM.Exec.DBNoTrimPure
+import LAM.Exec.DBTrimPure
 import LAM.Base
 import LAM.Print
 
@@ -46,5 +47,5 @@ compareLAMs l l' t = do
               error "Debug: not equal")
 
 debug :: IO ()
-debug = compareLAMs LAMDB3.isLAMN LAM.isLAM lamDebug
+debug = compareLAMs LAM.Exec.DBTrimPure.isLAMN LAM.Exec.NamedNoTrimPure.isLAM lamDebug
   -- printTrace LAMDB.isLAM lamDebug

@@ -1,10 +1,11 @@
-module LAMDB where
+module LAM.Exec.DBNoTrimPure where
 
 import Util
 import LAM.Base hiding (HeapPointer, Environment, Stack, State)
 import LAM.Parse
 import LAM.Print
 import LAM.IsDBEnv
+import LAM.IsLAM
 
 import Control.Monad
 import Data.Text (pack, unpack)

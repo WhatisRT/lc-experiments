@@ -2,13 +2,14 @@ module Bench where
 
 import Criterion.Main
 
-import LAM
+import LAM.Exec.NamedNoTrimPure
 import LAM.Base
+import LAM.IsLAM
 import LAM.Parse
 
-import qualified LAMDB as LAMDB
-import qualified LAMDB2 as LAMDB2
-import qualified LAMDB3 as LAMDB3
+import qualified LAM.Exec.DBNoTrimPure  as LAMDB
+import qualified LAM.Exec.DBNoTrimPure2 as LAMDB2
+import qualified LAM.Exec.DBTrimPure    as LAMDB3
 
 -- import MAlonzo.Code.LAM2
 

@@ -1,11 +1,12 @@
-module LAMDB3 where
+module LAM.Exec.DBTrimPure where
 
 import Data.IORef
 import LAM.Base hiding (HeapPointer, Environment, Stack, State)
 import LAM.IsDBEnv
-import LAM.Print
+import LAM.IsLAM
+import LAM.Print hiding (convHeap'')
 import LAM.Trim
-import LAMDB hiding (HeapPointer, Environment, Stack, State, mark2)
+--import LAMDB hiding (HeapPointer, Environment, Stack, State, mark2)
 import Trie.Map (Trie)
 import qualified Trie.Map as Trie
 
@@ -16,8 +17,8 @@ type State t = RState IORef DBTTerm0 t
 
 type Err = String
 
-convHeap' :: RHeap DBTTerm0 NamedList -> DHeap
-convHeap' h = map (\(Ref a, c) -> (Ref a, fmap convClosure'' c)) h
+convHeap'' :: RHeap DBTTerm0 NamedList -> DHeap
+convHeap'' h = map (\(Ref a, c) -> (Ref a, fmap convClosure'' c)) h
 
 convClosure'' :: RClosure Ref DBTTerm0 NamedList -> RClosure Ref Term Trie
 convClosure'' (Closure t (NamedList e)) =
@@ -36,9 +37,9 @@ instance CanTrim DBTTerm0 NamedList where
 instance PrintableState (State NamedList) where
   toDState state = do
     h <- collectHeap state
-    h' <- LAM.Print.convHeap' h
+    h' <- convHeap' h
     s' <- convStateRef (ioToRefH h) state
-    return (LAMDB3.convHeap' h', convState'' s')
+    return (convHeap'' h', convState'' s')
 
 mkClosure :: IsDBEnv t => DBTrim DBTTerm0 -> Environment t -> Closure DBTTerm0 t
 mkClosure (Trimmer0 x, t) e = case trimEnv x e of
@@ -73,7 +74,7 @@ isLAMG :: IsDBEnv t => IsLAM IO String (State t) Term
 isLAMG = IsLAM { step = mark3, initS = \t -> (Closure (termToDBTTerm0 t) (fromList []), []) }
 
 isLAM :: IsLAM IO String (State []) Term
-isLAM = LAMDB3.isLAMG
+isLAM = isLAMG
 
 isLAMN :: IsLAM IO String (State NamedList) Term
-isLAMN = LAMDB3.isLAMG
+isLAMN = isLAMG

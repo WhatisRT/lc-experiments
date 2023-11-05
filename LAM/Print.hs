@@ -2,6 +2,7 @@
 module LAM.Print where
 
 import LAM.Base
+import LAM.IsLAM
 
 import Control.Monad
 import Data.IORef

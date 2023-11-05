@@ -359,25 +359,3 @@ mapFree f = go 0
     go ctx (App t i) = App (go ctx t) (modI ctx i)
     go ctx (Let x t) = let ctx' = ctx+length x in
       Let (map (\(n, t') -> (n, go ctx' t')) x) (go ctx' t)
-
-data IsLAM m e s t = IsLAM { step :: s -> m (Either e s), initS :: t -> s }
-
-step' :: Monad m => IsLAM m e s t -> s -> m s
-step' l@(IsLAM step _) s = do
-  s' <- step s
-  case s' of
-    (Left _)    -> return s
-    (Right s'') -> step' l s''
-
-runTrace :: Monad m => IsLAM m e s t -> s -> m [s]
-runTrace l@(IsLAM step _) s = do
-  s' <- step s
-  case s' of
-    (Left _)    -> return []
-    (Right s'') -> (s :) <$> runTrace l s''
-
-runTrace' :: Monad m => IsLAM m e s t -> t -> m [s]
-runTrace' l = runTrace l . initS l
-
-evalPrint :: Show s => IsLAM IO e s t -> t -> IO ()
-evalPrint l@(IsLAM _ initS) t = step' l (initS t) >>= print

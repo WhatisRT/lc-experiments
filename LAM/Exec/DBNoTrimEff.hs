@@ -1,7 +1,8 @@
-module LAMDBB where
+module LAM.Exec.DBNoTrimEff where
 
 import LAM.Base hiding (HeapPointer, Environment, Stack, State, Tag, P, H)
 import LAM.IsDBEnv
+import LAM.IsLAM
 
 import Data.IORef
 
