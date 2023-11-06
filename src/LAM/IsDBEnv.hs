@@ -1,18 +1,21 @@
+-- | Environments for DeBruijn terms.
+
 module LAM.IsDBEnv where
 
 import Data.IORef
 import Data.Text (pack)
-import Data.Void
-import LAM.Base hiding (HeapPointer, Environment, Stack, State)
-import Trie.Map (Trie)
+import LAM.Base
 import Util
-import qualified Trie.Map as Trie
 
+import Trie.Map (Trie)
+import qualified Trie.Map as Trie
 import Data.Sequence (Seq, (<|), (><))
 import qualified Data.Sequence as Sequence
 import Data.Vector (Vector)
 import qualified Data.Vector as Vec
 
+-- | A container that can be used as an environment for DeBruijn
+-- terms. The key component is the indexing function 'lookupI'.
 
 class IsDBEnv t where
   fromList :: [(Name, a)] -> t a
@@ -34,7 +37,7 @@ instance IsDBEnv [] where
   uncons (x:xs) = Just (pack "",x,xs)
   uncons [] = Nothing
   app = (++)
-  lookupI = Util.lookup
+  lookupI = lookupList
 
 instance IsDBEnv NamedList where
   fromList = NamedList
@@ -43,7 +46,7 @@ instance IsDBEnv NamedList where
   uncons (NamedList ((n,x):xs)) = Just (n,x,NamedList xs)
   uncons (NamedList []) = Nothing
   app (NamedList l) (NamedList l') = NamedList (l ++ l')
-  lookupI i (NamedList l) = Util.lookup i (map snd l)
+  lookupI i (NamedList l) = lookupList i (map snd l)
 
 instance IsDBEnv Seq where
   fromList = Sequence.fromList . map snd
@@ -61,11 +64,16 @@ instance IsDBEnv Vector where
   app = (Vec.++)
   lookupI = flip (Vec.!?)
 
-
+-- | Convert a (named) term together with named environment that
+-- contains DeBruijn heap pointers to a closure. Useful for evaluating
+-- open terms.
 
 toClosure :: IsDBEnv t => Trie (RHeapPointer r DBTerm t) -> Term -> RClosure r DBTerm t
 toClosure e t = let vars = freeVars t in
   Closure (toDBTermCtx id vars t) (fromList (unsafeLookupNs vars e))
+
+-- | Add top-level terms to a named environment for DeBruijn heap
+-- pointers.
 
 addToEnv :: IsDBEnv t => Name -> Term -> Trie (RHeapPointer IORef DBTerm t)
          -> IO (Trie (RHeapPointer IORef DBTerm t))

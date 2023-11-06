@@ -5,6 +5,7 @@ import Data.Text (pack)
 import Test.QuickCheck
 
 import LAM.Base
+import LAM.Types.Generic
 import LAM.Trim
 
 instance Arbitrary Name where
@@ -35,7 +36,7 @@ instance Arbitrary Term where
 roundtrip f g t = t == f (g t)
 
 roundtripToDB :: Term -> Bool
-roundtripToDB = roundtrip fromDBTerm (toDBTerm id)
+roundtripToDB = roundtrip (fromDBTerm :: DBTerm -> Term) (toDBTerm id)
 
 roundtripToDBT0 :: Term -> Bool
 roundtripToDBT0 = roundtrip termFromDBTTerm0 termToDBTTerm0

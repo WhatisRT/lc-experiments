@@ -1,22 +1,17 @@
 module LAM.Exec.DBNoTrimPure where
 
-import Util
-import LAM.Base hiding (HeapPointer, Environment, Stack, State)
-import LAM.Parse
+import LAM.Base hiding (State)
 import LAM.Print
 import LAM.IsDBEnv
 import LAM.IsLAM
+import LAM.Types.Generic
 
-import Control.Monad
-import Data.Text (pack, unpack)
 import Data.IORef
 
 import Trie.Map (Trie)
 import qualified Trie.Map as Trie
-import Data.Sequence (Seq, (<|), (><))
-import qualified Data.Sequence as Sequence
+import Data.Sequence (Seq)
 import Data.Vector (Vector)
-import qualified Data.Vector as Vec
 
 type HeapPointer t = RHeapPointer IORef DBTerm t
 type Environment t = REnvironment IORef DBTerm t
@@ -25,22 +20,8 @@ type State t = RState IORef DBTerm t
 
 type Err = String
 
-convHeap :: RHeap DBTerm NamedList -> DHeap
-convHeap h = map (\(Ref a, c) -> (Ref a, fmap convClosure' c)) h
-
-convClosure' :: RClosure Ref DBTerm NamedList -> RClosure Ref Term Trie
-convClosure' (Closure t (NamedList e)) =
-  Closure (fromDBTermCtx id (map fst e) t) (Trie.fromList $ reverse $ map (\(n, r) -> (n, convRef r)) e)
-
-convState' :: RState Ref DBTerm NamedList -> RState Ref Term Trie
-convState' (c, s) = (convClosure' c, map (fmap convRef) s)
-
 instance PrintableState (State NamedList) where
-  toDState state = do
-    h <- collectHeap state
-    h' <- convHeap' h
-    s' <- convStateRef (ioToRefH h) state
-    return (convHeap h', convState' s')
+  toDState = toDStateGen id
 
 mark2 :: IsDBEnv t => State t -> IO (Either Err (State t))
 mark2 (Closure (Var x) e, s) = case lookupI x e of

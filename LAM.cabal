@@ -47,12 +47,34 @@ common exts
                       , FlexibleContexts
                       , TupleSections
                       , MultiParamTypeClasses
+                      , BlockArguments
+                      , PatternSynonyms
+                      , TypeFamilies
+                      , StandaloneDeriving
     default-language: Haskell2010
 
 library
     import: warnings, deps, exts
     hs-source-dirs: src
-    exposed-modules: Addr, LAM.Base, LAM.Exec.DBNoTrimPure, LAM.Exec.DBNoTrimPure2, LAM.Exec.DBTrimPure, LAM.Exec.NamedNoTrimPure, LAM.IsDBEnv, LAM.IsLAM, LAM.Parse, LAM.Print, LAM.Trim, LC.Base, LC.Parse, Trie.Map, Util
+    exposed-modules: Addr
+                   , LAM.Base
+                   , LAM.CanTrim
+                   , LAM.Exec.DBNoTrimPure
+                   , LAM.Exec.DBNoTrimPure2
+                   , LAM.Exec.DBTrimPure
+                   , LAM.Exec.NamedNoTrimPure
+                   , LAM.Types.BV
+                   , LAM.Types.Generic
+                   , LAM.Types.Pure
+                   , LAM.IsDBEnv
+                   , LAM.IsLAM
+                   , LAM.Parse
+                   , LAM.Print
+                   , LAM.Trim
+                   , LC.Base
+                   , LC.Parse
+                   , Trie.Map
+                   , Util
 
 executable Debug
     import: deps, exts

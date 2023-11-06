@@ -1,10 +1,12 @@
-module LAM.Parse where
+-- | Parsing lambda terms.
+module LAM.Parse (parseTerm, termDebug, bench18) where
 
 import Data.Text (Text, append)
 import LAM.Base
 import qualified LC.Parse as LC
 
-parseTerm t = toTerm <$> LC.parseTerm' t
+-- | Parse a pure lambda term.
+parseTerm t = toTerm <$> LC.parseTerm t
 
 defs :: Text
 defs =  "let zero = λ z. λ s. z                                                            \
@@ -31,10 +33,12 @@ fromRight :: Either a b -> b
 fromRight (Left _) = undefined
 fromRight (Right b) = b
 
+-- | Debug term.
 termDebug :: Term
 termDebug = withFix $ fromRight $ parseTerm $
   append defs "let v = square (square two) in leq v v"
 
+-- | 18^4 <= 18^4
 bench18 :: Term
 bench18 = withFix $ fromRight $ parseTerm $
   append defs "let v = square (square (add ten eight)) in leq v v"

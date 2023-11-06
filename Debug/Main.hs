@@ -11,14 +11,14 @@ import LAM.Print
 -- compareLAMs :: (Show s, Show s', PrintableState s, PrintableState s')
 --             => IsLAM IO e s t -> IsLAM IO e s' t -> t -> IO Bool
 compareLAMs l l' t = do
-  trace1' <- runTrace' l  t
-  trace2' <- runTrace' l' t
+  trace1' <- runTrace l  t
+  trace2' <- runTrace l' t
   -- print (length trace1')
   -- flip mapM_ [0..] (\n -> do
   --                  print =<< (toPrintableState $ trace1' !! n)
   --                  print =<< (toPrintableState $ trace2' !! n))
-  trace1 <- traverse toDState =<< runTrace' l  t
-  trace2 <- traverse toDState =<< runTrace' l' t
+  trace1 <- traverse toDState =<< runTrace l  t
+  trace2 <- traverse toDState =<< runTrace l' t
   print $ Prelude.length trace1
   print $ Prelude.length trace2
   forM_ (zip3 [0..] trace1 trace2) (\(i, s1', s2') -> do

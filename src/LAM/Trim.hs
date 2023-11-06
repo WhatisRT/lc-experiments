@@ -6,6 +6,7 @@ module LAM.Trim where
 import Data.Void
 import Data.List
 import LAM.Base
+import LAM.Types.Generic
 
 type DBTrim a = (Trimmer0, a)
 

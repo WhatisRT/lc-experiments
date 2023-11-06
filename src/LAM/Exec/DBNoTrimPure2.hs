@@ -1,6 +1,7 @@
 module LAM.Exec.DBNoTrimPure2 where
 
-import LAM.Base hiding (HeapPointer, Environment, Stack, State)
+import LAM.Base hiding (State)
+import LAM.Types.Generic
 import LAM.IsLAM
 
 import Data.IORef
