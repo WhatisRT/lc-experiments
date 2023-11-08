@@ -22,12 +22,9 @@ compareLAMs l l' t = do
   print $ Prelude.length trace1
   print $ Prelude.length trace2
   forM_ (zip3 [0..] trace1 trace2) (\(i, s1', s2') -> do
-    let s1 = toPStateD s1'
-    let s2 = toPStateD s2'
-    let s1'' = trace1' !! i
-    let s2'' = trace2' !! i
     if i `mod` 100 /= 0 then return () else putStrLn ("Step " ++ show i)
-    if heuristicCompPState s1 s2 then return ()
+    res <- heuristicCompState s1' s2'
+    if res then return ()
       else do putStrLn ("Step " ++ show i ++ ":")
               print (trimState s1) >> putStr "\n"
               print (trimState s2) >> putStrLn "\n\n"

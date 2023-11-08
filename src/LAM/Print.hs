@@ -1,14 +1,15 @@
 -- | Printing for abstract machine states.
 module LAM.Print
   ( PrintableState(..), Ref(..), DHeap, RHeap, DState, DState', PState, Addr, PHeap
-  , ioToRefH, convHeap', convRef, convHeap, printTrace, heuristicCompPState
-  , trimState, toPStateD, toDStateGen) where
+  , ioToRefH, convHeap', convRef, convHeap, printTrace
+  , heuristicCompState, trimState, toPStateD, toDStateGen) where
 
 import LAM.Base
 import LAM.IsLAM
 import LAM.CanTrim
 
 import Control.Monad
+import Data.Functor.Classes
 import Data.IORef
 import Data.List
 import Data.Text (unpack)
@@ -202,17 +203,13 @@ heuristicCompTag (H _) (H _) = True
 heuristicCompTag _     _     = False
 
 heuristicCompPStack :: PStack -> PStack -> Bool
-heuristicCompPStack s s' = length s == length s' && (and $ zipWith heuristicCompTag s s')
+heuristicCompPStack = liftEq heuristicCompTag
 
 heuristicCompPClosure :: PClosure -> PClosure -> Bool
 heuristicCompPClosure (Closure t _) (Closure t' _) = t == t'
 
 heuristicCompPHeap :: PHeap -> PHeap -> Bool
-heuristicCompPHeap h h' = length h == length h' && (and $ zipWith (curry \case
-  ((_, Just c),  (_, Just c')) -> heuristicCompPClosure c c'
-  ((_, Nothing), (_, Nothing)) -> True
-  (_          , _)             -> False)
-                            h h')
+heuristicCompPHeap = liftEq (\(_,x) (_,y) -> liftEq heuristicCompPClosure x y)
 
 heuristicCompPState' :: PState -> PState -> Bool
 heuristicCompPState' (h, (c, s)) (h', (c', s')) =
@@ -228,6 +225,15 @@ heuristicCompPState' (h, (c, s)) (h', (c', s')) =
 heuristicCompPState :: PState -> PState -> Bool
 heuristicCompPState s s' = heuristicCompPState' (trimState s) (trimState s')
 
+-- | Heuristic equality for 'PrintableState's. This doesn't properly
+-- follow pointers, but it should be very difficult to create two
+-- states that this test equates but aren't actually equal.
+--
+-- prop> heuristicCompState s1 s2 = false => s1 /= s2
+heuristicCompState :: PrintableState s => s -> s -> IO Bool
+heuristicCompState s s' =
+  liftM2 heuristicCompPState (toPrintableState s) (toPrintableState s')
+
 --------------------------------------------------------------------------------
 
 -- | A class for printing abstract machine states.
@@ -236,12 +242,15 @@ class PrintableState a where
   toPrintableState :: a -> IO PState
   toPrintableState s = (simpHeapAddrs . toPStateD) <$> toDState s
 
--- | Run an abstract machine and print its trace.
-printTrace :: PrintableState s => IsLAM IO e s t -> t -> IO ()
-printTrace l t = print =<< traverse toPrintableState =<< runTrace l t
+instance PrintableState DState where
+  toDState = return
 
 instance PrintableState State where
   toDState s@(Closure _ e, _) = convState' id id s
+
+-- | Run an abstract machine and print its trace.
+printTrace :: PrintableState s => IsLAM IO e s t -> t -> IO ()
+printTrace l t = print =<< traverse toPrintableState =<< runTrace l t
 
 toPPtrD :: DHeapPointer -> PHeapPointer
 toPPtrD = convRef
