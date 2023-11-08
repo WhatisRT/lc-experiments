@@ -26,8 +26,8 @@ compareLAMs l l' t = do
     res <- heuristicCompState s1' s2'
     if res then return ()
       else do putStrLn ("Step " ++ show i ++ ":")
-              print (trimState s1) >> putStr "\n"
-              print (trimState s2) >> putStrLn "\n\n"
+              -- print (trimState s1) >> putStr "\n"
+              -- print (trimState s2) >> putStrLn "\n\n"
               -- print s1 >> putStr "\n"
               -- print s2 >> putStr "\n\n"
               -- print s1' >> putStr "\n"
