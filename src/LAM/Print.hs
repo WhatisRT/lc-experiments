@@ -230,7 +230,7 @@ heuristicCompPState s s' = heuristicCompPState' (trimState s) (trimState s')
 -- states that this test equates but aren't actually equal.
 --
 -- prop> heuristicCompState s1 s2 = false => s1 /= s2
-heuristicCompState :: PrintableState s => s -> s -> IO Bool
+heuristicCompState :: (PrintableState s , PrintableState s') => s -> s' -> IO Bool
 heuristicCompState s s' =
   liftM2 heuristicCompPState (toPrintableState s) (toPrintableState s')
 
