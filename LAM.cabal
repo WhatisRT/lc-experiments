@@ -86,7 +86,7 @@ executable Debug
 test-suite Test
     import: deps, exts
     main-is: Test.hs
-    other-modules: LAM.Test
+    other-modules: LAM.Test , LAM.Exec.Test
     type: exitcode-stdio-1.0
     build-depends: LAM
                  , QuickCheck
