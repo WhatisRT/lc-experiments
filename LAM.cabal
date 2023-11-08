@@ -50,6 +50,7 @@ common exts
                       , BlockArguments
                       , PatternSynonyms
                       , TypeFamilies
+                      , TypeOperators
                       , StandaloneDeriving
     default-language: Haskell2010
 
