@@ -39,7 +39,7 @@ jobs:
 
       - name: Configure the build
         run: |
-          cabal configure --enable-tests --enable-benchmarks --disable-documentation
+          cabal configure --enable-tests --enable-benchmarks --enable-documentation
           cabal build --dry-run
         # The last step generates dist-newstyle/cache/plan.json for the cache key.
 
@@ -77,4 +77,30 @@ jobs:
       #   run: cabal check
 
       - name: Build documentation
-        run: cabal haddock all
+        if: runner.os == 'Linux'
+        run: cabal haddock all --haddock-hyperlink-source --haddock-quickjump
+
+      - name: Upload HTML artifacts
+        uses: actions/upload-pages-artifact@v2
+        if: runner.os == 'Linux'
+        with:
+          path: dist-newstyle/build/x86_64-linux/ghc-9.8.1/LAM-0.1.0.0/doc/html/LAM/
+
+  deploy:
+    needs: build
+
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
+        if: github.event_name == 'push'
