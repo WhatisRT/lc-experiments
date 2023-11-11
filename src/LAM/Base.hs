@@ -4,7 +4,9 @@ module LAM.Base
   , module LAM.Types.Generic
   , module LAM.Types.Pure
   , freeIxs
-  , NamedList(..), RClosure(..), Tag(..), RState, State, RStack, REnvironment, RHeapPointer, HeapRefs, Closure, freeVars, convStateRef, convClosureRef, withFix, toTerm, unsafeLookupNs, mapFree, collectHeap) where
+  , IsNamedEnv(..), NamedList(..), RClosure(..), Tag(..)
+  , RState, State, RStack, REnvironment, RHeapPointer, HeapRefs, Closure
+  , freeVars, convStateRef, convClosureRef, withFix, toTerm, unsafeLookupNs, mapFree, collectHeap) where
 
 import Control.Monad
 import Data.IORef
@@ -20,6 +22,22 @@ import qualified Trie.Map as Trie
 
 -- isClosed :: Term -> Bool
 -- isClosed = null . freeVars
+
+-- | An environment
+class IsNamedEnv t where
+  eToList   :: t a -> [(Name, a)]
+  eFromList :: [(Name, a)] -> t a
+  eLookup   :: Name -> t a -> Maybe a
+  eLookup n e = Data.List.lookup n (eToList e)
+
+instance IsNamedEnv NamedList where
+  eToList (NamedList l) = l
+  eFromList l = NamedList l
+
+instance IsNamedEnv Trie where
+  eToList = Trie.toList
+  eFromList = Trie.fromList
+  eLookup = Trie.lookup
 
 -- | A basic environment for DeBruijn terms, including names for
 -- converting to a named representation.

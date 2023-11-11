@@ -1,12 +1,12 @@
 module Main where
 
 import Control.Monad
-import LAM.Exec.DBNoTrimPure
 import LAM.Exec.DBTrimPure
 import LAM.Exec.NamedNoTrimPure
 import LAM.IsLAM
 import LAM.Parse
-import LAM.Print
+import LAM.Pure
+import LAM.Base
 
 -- compareLAMs :: (Show s, Show s', PrintableState s, PrintableState s')
 --             => IsLAM IO e s t -> IsLAM IO e s' t -> t -> IO Bool
@@ -17,14 +17,13 @@ compareLAMs l l' t = do
   -- flip mapM_ [0..] (\n -> do
   --                  print =<< (toPrintableState $ trace1' !! n)
   --                  print =<< (toPrintableState $ trace2' !! n))
-  trace1 <- traverse toDState =<< runTrace l  t
-  trace2 <- traverse toDState =<< runTrace l' t
+  trace1 <- traverse toPureState =<< runTrace l  t :: IO [PState NamedList]
+  trace2 <- traverse toPureState =<< runTrace l' t :: IO [PState NamedList]
   print $ Prelude.length trace1
   print $ Prelude.length trace2
   forM_ (zip3 [0..] trace1 trace2) (\(i, s1', s2') -> do
     if i `mod` 100 /= 0 then return () else putStrLn ("Step " ++ show i)
-    res <- heuristicCompState s1' s2'
-    if res then return ()
+    if heuristicCompPState s1' s2' then return ()
       else do putStrLn ("Step " ++ show i ++ ":")
               -- print (trimState s1) >> putStr "\n"
               -- print (trimState s2) >> putStrLn "\n\n"

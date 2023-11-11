@@ -1,27 +1,23 @@
 module LAM.Exec.DBNoTrimPure where
 
 import LAM.Base hiding (State)
-import LAM.Print
+import LAM.Pure
 import LAM.IsDBEnv
 import LAM.IsLAM
-import LAM.Types.Generic
 
 import Data.IORef
 
-import Trie.Map (Trie)
 import qualified Trie.Map as Trie
 import Data.Sequence (Seq)
 import Data.Vector (Vector)
 
 type HeapPointer t = RHeapPointer IORef DBTerm t
-type Environment t = REnvironment IORef DBTerm t
-type Stack t = RStack IORef DBTerm t
 type State t = RState IORef DBTerm t
 
 type Err = String
 
-instance PrintableState (State NamedList) where
-  toDState = toDStateGen id
+instance ToPureState (State NamedList) NamedList where
+  toPureState = toPureStateGen id
 
 mark2 :: IsDBEnv t => State t -> IO (Either Err (State t))
 mark2 (Closure (Var x) e, s) = case lookupI x e of

@@ -64,14 +64,14 @@ library
                    , LAM.Exec.DBNoTrimPure2
                    , LAM.Exec.DBTrimPure
                    , LAM.Exec.NamedNoTrimPure
-                   , LAM.Types.BV
-                   , LAM.Types.Generic
-                   , LAM.Types.Pure
                    , LAM.IsDBEnv
                    , LAM.IsLAM
                    , LAM.Parse
-                   , LAM.Print
+                   , LAM.Pure
                    , LAM.Trim
+                   , LAM.Types.BV
+                   , LAM.Types.Generic
+                   , LAM.Types.Pure
                    , LC.Base
                    , LC.Parse
                    , Trie.Map
