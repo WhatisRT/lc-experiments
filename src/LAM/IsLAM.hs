@@ -1,6 +1,6 @@
 -- | This package defines many abstract machines, so we define a type
 -- to work with them.
-module LAM.IsLAM (IsLAM(..), runTrace, evalPrint, evalHnf) where
+module LAM.IsLAM (IsLAM(..), runTrace, runTraceFinite, evalPrint, evalHnf) where
 
 -- | A record that holds initialization and step functions for an
 -- abstract machine.
@@ -14,17 +14,26 @@ run l@(IsLAM step _) s = do
     (Left _)   -> return s
     (Right s') -> run l s'
 
--- | Run the abstract machine and return a trace of the whole
--- execution.
-runTrace :: Monad m => IsLAM m e s t -> t -> m [s]
-runTrace l = runTrace' l . initS l
+runTrace' :: Monad m => Maybe Word -> IsLAM m e s t -> t -> m [s]
+runTrace' x l = go x l . initS l
   where
-    runTrace' :: Monad m => IsLAM m e s t -> s -> m [s]
-    runTrace' l@(IsLAM step _) s = do
+    go :: Monad m => Maybe Word -> IsLAM m e s t -> s -> m [s]
+    go (Just 0) _                s = return []
+    go x        l@(IsLAM step _) s = do
       s' <- step s
       case s' of
         (Left _)    -> return []
-        (Right s'') -> (s :) <$> runTrace' l s''
+        (Right s'') -> (s :) <$> go ((\y -> y - 1) <$> x) l s''
+
+-- | Run the abstract machine to the final state and return a trace of
+-- the whole execution.
+runTrace :: Monad m => IsLAM m e s t -> t -> m [s]
+runTrace = runTrace' Nothing
+
+-- | Run the abstract machine a given number of steps and return a
+-- trace of the whole execution.
+runTraceFinite :: Monad m => Word -> IsLAM m e s t -> t -> m [s]
+runTraceFinite = runTrace' . Just
 
 -- | Run the abstract machine and print the final state.
 evalPrint :: Show s => IsLAM IO e s t -> t -> IO ()

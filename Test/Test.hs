@@ -10,7 +10,7 @@ import Test.QuickCheck
 import Test.QuickCheck.Monadic
 
 
-doTest t = isSuccess <$> quickCheckResult (withMaxSuccess 10 t)
+doTest t = isSuccess <$> quickCheckResult (withMaxSuccess 10000 t)
 
 main :: IO ()
 main = do
