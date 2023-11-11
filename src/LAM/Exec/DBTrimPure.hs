@@ -4,18 +4,12 @@ import Data.IORef
 import LAM.Base hiding (State)
 import LAM.IsDBEnv
 import LAM.IsLAM
-import LAM.Print
+import LAM.Pure
 import LAM.Trim
 import LAM.CanTrim
-import Trie.Map (Trie)
-import qualified Trie.Map as Trie
 
-type HeapPointer t = RHeapPointer IORef DBTTerm0 t
 type Environment t = REnvironment IORef DBTTerm0 t
-type Stack t = RStack IORef DBTTerm0 t
 type State t = RState IORef DBTTerm0 t
-
-type Err = String
 
 instance Show (Closure DBTTerm0 t) where
   show (Closure t _) = show t
@@ -23,8 +17,8 @@ instance Show (Closure DBTTerm0 t) where
 instance CanTrim DBTTerm0 NamedList where
   trim (Closure t e) = Closure t e
 
-instance PrintableState (State NamedList) where
-  toDState = toDStateGen fromDBTTerm0
+instance ToPureState (State NamedList) NamedList where
+  toPureState = toPureStateGen fromDBTTerm0
 
 mkClosure :: IsDBEnv t => DBTrim DBTTerm0 -> Environment t -> Closure DBTTerm0 t
 mkClosure (Trimmer0 x, t) e = case trimEnv x e of

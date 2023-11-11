@@ -20,3 +20,6 @@ insertMulti l = Map.union (Map.fromList l)
 
 fromList :: [(Text, a)] -> Trie a
 fromList = Map.fromList
+
+toList :: Trie a -> [(Text, a)]
+toList = Map.toList

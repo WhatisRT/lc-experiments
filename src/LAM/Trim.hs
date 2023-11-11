@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeFamilies #-}
 module LAM.Trim where
 
 -- Terms with trimmers

@@ -1,4 +1,3 @@
-{-# LANGUAGE MultiWayIf, OverloadedStrings #-}
 module LAM.Test where
 
 import Data.Text (pack)
