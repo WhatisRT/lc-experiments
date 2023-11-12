@@ -80,6 +80,10 @@ jobs:
         if: runner.os == 'Linux'
         run: cabal haddock all --haddock-hyperlink-source --haddock-quickjump
 
+      - name: Run benchmarks
+        if: runner.os == 'Linux'
+        run: cabal bench all --benchmark-options="-o dist-newstyle/build/x86_64-linux/ghc-9.8.1/LAM-0.1.0.0/doc/html/LAM/bench.html"
+
       - name: Upload HTML artifacts
         uses: actions/upload-pages-artifact@v2
         if: runner.os == 'Linux'
@@ -88,6 +92,7 @@ jobs:
 
   deploy:
     needs: build
+    if: github.event_name == 'push'
 
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
@@ -103,4 +108,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v2
-        if: github.event_name == 'push'
