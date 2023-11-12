@@ -3,7 +3,7 @@ module LAM.Base
   ( module LAM.Types.BV
   , module LAM.Types.Generic
   , module LAM.Types.Pure
-  , freeIxs, appT
+  , freeIxs, appT, substName, isClosed, isFree, freshName
   , IsNamedEnv(..), NamedList(..), RClosure(..), Tag(..)
   , RState, State, RStack, REnvironment, RHeapPointer, HeapRefs, Closure
   , freeVars, convStateRef, convClosureRef, withFix, toTerm, unsafeLookupNs, mapFree, collectHeap) where
@@ -20,8 +20,9 @@ import Trie.Map (Trie)
 import qualified LC.Base as LC
 import qualified Trie.Map as Trie
 
--- isClosed :: Term -> Bool
--- isClosed = null . freeVars
+-- | Whether a term is closed.
+isClosed :: Term -> Bool
+isClosed = null . freeVars
 
 -- | An environment
 class IsNamedEnv t where
@@ -175,6 +176,18 @@ appT :: Term -> Term -> Term
 appT t (Var x) = App t x
 appT t t'      = let x = freshName "a" t in Let [(x , t')] (App t x)
 
+-- | @substName t n n'@ is @t[n/n']@, i.e. replace every free
+-- occurence of @n'@ by @n@.
+substName :: Term -> Name -> Name -> Term
+substName t n n' = go t
+  where
+    go :: Term -> Term
+    go (Var x)   = if x == n' then Var n else Var x
+    go u@(Lam x t) = if x == n' then u else Lam x (go t)
+    go (App t x) = if x == n' then App (go t) n else App (go t) x
+    go u@(Let x t) = if n' `elem` map fst x then u else
+      Let (map (\(n,t') -> (n,go t')) x) (go t)
+
 -- | Convert a general lambda term to a representation for our
 -- abstract machines.
 toTerm :: LC.Term -> Term
@@ -200,6 +213,9 @@ freeVars = nub . go []
     go ctx (App t x) = go ctx t ++ addVar ctx x
     go ctx (Let x t) = let ctx' = map fst x ++ ctx in
       concatMap (go ctx') (map snd x) ++ go ctx' t
+
+isFree :: Term -> Name -> Bool
+isFree t n = n `elem` freeVars t
 
 -- | DeBruijn version of 'freeVars'.
 --

@@ -65,6 +65,7 @@ library
                    , LAM.Exec.NamedNoTrimPure
                    , LAM.IsDBEnv
                    , LAM.IsLAM
+                   , LAM.Opt
                    , LAM.Parse
                    , LAM.Pure
                    , LAM.Trim
