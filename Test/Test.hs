@@ -1,5 +1,6 @@
 module Main where
 
+import LAM.Base
 import LAM.Test
 import LAM.Pure
 import LAM.Parse
@@ -19,6 +20,9 @@ doTestSingle t = isSuccess <$> quickCheckResult (withMaxSuccess 1 t)
 
 testBench l = (trueTerm ==) <$> (run $ runHnf l bench18)
 
+substFree t n n' = if n' `elem` freeVars t
+  then filter (\x -> not $ x `elem` freeVars t) (freeVars (substName t n n')) == [n]
+  else substName t n n' == t
 
 list_of_LAMs :: [LAM Term]
 list_of_LAMs = [

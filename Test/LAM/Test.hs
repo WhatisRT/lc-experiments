@@ -6,6 +6,10 @@ import Test.QuickCheck
 import LAM.Base
 import LAM.Types.Generic
 import LAM.Trim
+import Data.Void
+
+instance Arbitrary Void where
+  arbitrary = undefined
 
 instance Arbitrary Name where
   arbitrary = (pack . pure) <$> elements ['a'..'z']
@@ -30,7 +34,7 @@ instance Arbitrary Term where
                        | length c > s' -> varDep
                        | otherwise -> intro ++ varDep)
   -- FIXME: doesn't work because of missing Arbitrary Void
-  --shrink = filter isClosed . genericShrink
+  shrink = filter isClosed . genericShrink
 
 instance Arbitrary DBTerm where
   arbitrary = (toDBTerm id) <$> (arbitrary :: Gen Term)
