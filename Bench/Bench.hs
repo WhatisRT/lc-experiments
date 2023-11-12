@@ -35,4 +35,4 @@ benchmarks = [ bench "Unary Nats"              $ whnf benchUNat 18
              ]
 
 main :: IO ()
-main = defaultMain fastest
+main = defaultMain benchmarks
