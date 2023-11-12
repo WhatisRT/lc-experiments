@@ -49,11 +49,10 @@ mark2 (Closure (Var x) e, s, s') = case lookupI x e of
       (Just c) -> do
         writeIORef p Nothing -- insert black hole
         return (Right (c, H (Ref p) : s, s'))
-mark2 (Closure (Lam _ _)   e,   [], _)       = return (Left "Finished: Lam: stack empty")
-mark2 (Closure (Lam y e)   env, P p : s, s') = return (Right (Closure e (cons y p env), s, s'))
-mark2 (Closure t@(Lam _ _) env, H (Ref p) : s, s') = let c = Closure t env in do
-  writeIORef p (Just c)
-  return (Right (c, s, s'))
+mark2 (Closure (Lam _ _)    e,    [], _)       = return (Left "Finished: Lam: stack empty")
+mark2 (Closure (Lam y e)    env,  P p : s, s') = return (Right (Closure e (cons y p env), s, s'))
+mark2 (c@(Closure (Lam _ _) env), H (Ref p) : s, s') =
+  writeIORef p (Just c) >> return (Right (c, s, s'))
 mark2 (Closure (App e x) env, s, s') = case lookupI x env of
   Nothing  -> return (Left "Bug: App: lookup failed")
   (Just p) -> return (Right (Closure e env, P p : s, s'))

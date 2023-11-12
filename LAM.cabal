@@ -61,7 +61,6 @@ library
                    , LAM.Base
                    , LAM.CanTrim
                    , LAM.Exec.DBNoTrimPure
-                   , LAM.Exec.DBNoTrimPure2
                    , LAM.Exec.DBTrimPure
                    , LAM.Exec.NamedNoTrimPure
                    , LAM.IsDBEnv
