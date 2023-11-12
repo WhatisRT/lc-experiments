@@ -1,5 +1,5 @@
 -- | Parsing lambda terms.
-module LAM.Parse (parseTerm, termDebug, bench18) where
+module LAM.Parse (parseTerm, trueTerm, termDebug, bench18) where
 
 import Data.Text (Text, append)
 import LAM.Base
@@ -32,6 +32,10 @@ defs =  "let zero = λ z. λ s. z                                               
 fromRight :: Either a b -> b
 fromRight (Left _) = undefined
 fromRight (Right b) = b
+
+-- | Scott encoded @true@.
+trueTerm :: Term
+trueTerm = fromRight $ parseTerm "λ f. λ t. t"
 
 -- | Debug term.
 termDebug :: Term

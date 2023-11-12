@@ -7,6 +7,7 @@ import LAM.IsLAM
 import LAM.Pure
 import LAM.Trim
 import LAM.CanTrim
+import Trie.Map (Trie)
 
 type Environment t = REnvironment IORef DBTTerm0 t
 type State t = RState IORef DBTTerm0 t
@@ -17,7 +18,16 @@ instance Show (Closure DBTTerm0 t) where
 instance CanTrim DBTTerm0 NamedList where
   trim (Closure t e) = Closure t e
 
+instance CanTrim DBTTerm0 [] where
+  trim (Closure t e) = Closure t e
+
 instance ToPureState (State NamedList) NamedList where
+  toPureState = toPureStateGen fromDBTTerm0
+
+instance ToPureState (State []) Trie where
+  toPureState = toPureStateGen fromDBTTerm0
+
+instance ToPureState (State NamedList) Trie where
   toPureState = toPureStateGen fromDBTTerm0
 
 mkClosure :: IsDBEnv t => DBTrim DBTTerm0 -> Environment t -> Closure DBTTerm0 t

@@ -3,7 +3,7 @@ module LAM.Base
   ( module LAM.Types.BV
   , module LAM.Types.Generic
   , module LAM.Types.Pure
-  , freeIxs
+  , freeIxs, appT
   , IsNamedEnv(..), NamedList(..), RClosure(..), Tag(..)
   , RState, State, RStack, REnvironment, RHeapPointer, HeapRefs, Closure
   , freeVars, convStateRef, convClosureRef, withFix, toTerm, unsafeLookupNs, mapFree, collectHeap) where
@@ -29,6 +29,11 @@ class IsNamedEnv t where
   eFromList :: [(Name, a)] -> t a
   eLookup   :: Name -> t a -> Maybe a
   eLookup n e = Data.List.lookup n (eToList e)
+
+-- If we don't have names, we invent some
+instance IsNamedEnv [] where
+  eToList = zip (map (\x -> pack $ "DB" ++ show (x :: Integer)) [0..])
+  eFromList = map snd
 
 instance IsNamedEnv NamedList where
   eToList (NamedList l) = l

@@ -4,7 +4,8 @@
 -- fetch data from the heap.
 module LAM.Pure
   ( ToPureState(..), PState, PState', IsNamedEnv(..), RHeap, Ref
-  , simpHeapAddrs, heuristicCompState, heuristicCompPState, trimState, toPureStateGen)
+  , simpHeapAddrs, heuristicCompState, heuristicCompPState, trimState, toPureStateGen
+  , stateToTerm, runHnf)
 where
 
 import LAM.Base
@@ -219,6 +220,35 @@ heuristicCompPState s s' = heuristicCompPState' (trimState s) (trimState s')
 heuristicCompState :: (ToPureState s1 Trie, ToPureState s2 Trie) => s1 -> s2 -> IO Bool
 heuristicCompState s s' =
   liftM2 heuristicCompPState (toPureState s) (toPureState s' :: IO (PState Trie))
+
+--------------------------------------------------------------------------------
+-- Extract terms
+
+closureToTerm :: IsNamedEnv t => PHeap t -> PClosure t -> Term
+closureToTerm h (Closure (Var x) e) = case eLookup x e of
+  Nothing  -> Var x
+  (Just p) -> case lookup p h of
+    (Just (Just c)) -> closureToTerm h c
+    _               -> Var x
+closureToTerm h (Closure (Lam x t) e) = Lam x $ closureToTerm h (Closure t e)
+closureToTerm h (Closure (App t x) e) =
+  appT (closureToTerm h (Closure t e)) (closureToTerm h (Closure (Var x) e))
+closureToTerm h (Closure (Let x t) e) =
+  Let (map (\(n, t) -> (n, closureToTerm h (Closure t e))) x) (closureToTerm h (Closure t e))
+
+stateToTerm :: IsNamedEnv t => PState t -> Term
+stateToTerm (h, (c, [])) = closureToTerm h c
+stateToTerm (h, (Closure t e, P p : s)) = case lookup p h of
+  ((Just (Just c))) -> stateToTerm (h, (Closure (closureToTerm h c) e, s))
+  _                 -> error "Bug: Black hole or not in heap"
+stateToTerm (h, (c          , H p : s)) =
+  stateToTerm ((p, Just c) : filter (\(p',_) -> p /= p') h, (c, s))
+
+stateToTerm' :: ToPureState s Trie => s -> IO Term
+stateToTerm' s = stateToTerm <$> (toPureState s :: IO (PState Trie))
+
+runHnf :: ToPureState s Trie => IsLAM IO e s Term -> Term -> IO Term
+runHnf l = evalHnf l stateToTerm'
 
 --------------------------------------------------------------------------------
 -- Other
