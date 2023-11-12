@@ -45,11 +45,10 @@ mark3 (Closure (DBTVar x) e, s) = case lookupI x e of
       (Just c) -> do
         writeIORef p Nothing -- insert black hole
         return (Right (c, H p : s))
-mark3 (Closure (DBTLam _ _)   e,   [])      = return (Left "Finished: Lam: stack empty")
-mark3 (Closure (DBTLam y e)   env, P p : s) = return (Right (Closure e (cons y p env), s))
-mark3 (Closure t@(DBTLam _ _) env, H p : s) = let c = Closure t env in do
-  writeIORef p (Just c)
-  return (Right (c, s))
+mark3 (Closure (DBTLam _ _)    e,    [])      = return (Left "Finished: Lam: stack empty")
+mark3 (Closure (DBTLam y e)    env,  P p : s) = return (Right (Closure e (cons y p env), s))
+mark3 (c@(Closure (DBTLam _ _) env), H p : s) =
+  writeIORef p (Just c) >> return (Right (c, s))
 mark3 (Closure (DBTApp e x) env, s) = case lookupI x env of
   Nothing  -> return (Left "Bug: App: lookup failed")
   (Just p) -> return (Right (Closure e env, P p : s))
