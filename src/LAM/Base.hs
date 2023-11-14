@@ -187,6 +187,8 @@ withFix :: Term -> Term
 withFix t = Let [ ("fix" , Lam "f" (Let [ ("fixf" , App (Var "fix") "f") ] (App (Var "f") "fixf"))) ] t
 
 -- | The free variables of a term.
+--
+-- prop> freeVars (λ x. t) = freeVars t \ [x]
 freeVars :: Term -> [Name]
 freeVars = nub . go []
   where
@@ -200,6 +202,9 @@ freeVars = nub . go []
       concatMap (go ctx') (map snd x) ++ go ctx' t
 
 -- | DeBruijn version of 'freeVars'.
+--
+-- prop> length (freeIxs (toDBTerm t)) = length (freeVars t)
+-- prop> length ctx = maximum (freeIxs t) + 1 => freeVars (fromDBTermCtx ctx t) = ctx
 freeIxs :: DBTerm -> [Int]
 freeIxs = nub . sort . helper
   where
@@ -213,6 +218,8 @@ freeIxs = nub . sort . helper
     helper (Let x t) = strengthenBy (length x) (concatMap (\(_,t) -> helper t) x ++ helper t)
 
 -- | Apply some transformation to the free variables.
+--
+-- prop> map f (freeVars t) = freeVars (mapFree t)
 mapFree :: (Int -> Int) -> DBTerm -> DBTerm
 mapFree f = go 0
   where
