@@ -53,6 +53,15 @@ instance ToPureState (State Seq) Trie where
 instance ToPureState (State Vector) Trie where
   toPureState = toPureStateGen id
 
+instance ToPureState (State []) NamedList where
+  toPureState = toPureStateGen id
+
+instance ToPureState (State Seq) NamedList where
+  toPureState = toPureStateGen id
+
+instance ToPureState (State Vector) NamedList where
+  toPureState = toPureStateGen id
+
 mark2 :: IsDBEnv t => State t -> IO (Either Err (State t))
 mark2 (Closure (Var x) e, s) = case lookupI x e of
   Nothing  -> return (Left "Bug: Var: lookup failed")
