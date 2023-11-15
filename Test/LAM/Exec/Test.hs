@@ -1,3 +1,5 @@
+{-# LANGUAGE ExistentialQuantification #-}
+
 module LAM.Exec.Test where
 
 import LAM.Base
@@ -12,3 +14,8 @@ compareLAMs l l' t = do
   if length trace1 /= length trace2 then return False
     else do comps <- sequence $ zipWith heuristicCompState trace1 trace2
             return $ foldr (&&) True comps
+            
+data LAM t = forall e s. (ToPureState s NamedList) => Any (IsLAM IO e s t)
+
+compareLAMs' :: LAM t -> LAM t -> t -> IO Bool
+compareLAMs' (Any l) (Any l') t = compareLAMs l l' t
