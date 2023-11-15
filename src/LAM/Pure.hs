@@ -5,7 +5,7 @@
 module LAM.Pure
   ( ToPureState(..), PState, PState', IsNamedEnv(..), RHeap, Ref
   , simpHeapAddrs, heuristicCompState, heuristicCompPState, trimState, toPureStateGen
-  , stateToTerm, runHnf)
+  , stateToTerm, runHnf, runHnfPrint, runHnfPrintTrace )
 where
 
 import LAM.Base
@@ -16,7 +16,9 @@ import Control.Monad
 import Data.Functor.Classes
 import Data.IORef
 import Data.List
-import Data.Text (unpack)
+import Data.Maybe
+import Data.Text (pack, unpack)
+import Data.Tuple
 import Data.Void
 
 import Trie.Map (Trie)
@@ -51,6 +53,9 @@ ioToRefH h r = case findIndex ((==) r) h of
 -- | A list representing the heap. We extract this from an abstract
 -- machine to get a pure value we can manipulate freely.
 type RHeap term t = [(RHeapPointer Ref term t, Maybe (RClosure Ref term t))]
+
+-- | Like 'RHeap', but specialized to 'Term' and including name suggestions.
+type NHeap t = [([Name], PHeapPointer t, Maybe (PClosure t))]
 
 type PClosure t = RClosure Ref Term t
 type PHeapPointer t = RHeapPointer Ref Term t
@@ -224,31 +229,79 @@ heuristicCompState s s' =
 --------------------------------------------------------------------------------
 -- Extract terms
 
-closureToTerm :: IsNamedEnv t => PHeap t -> PClosure t -> Term
-closureToTerm h (Closure (Var x) e) = case eLookup x e of
-  Nothing  -> Var x
+addNames :: IsNamedEnv t => PHeap t -> PClosure t -> NHeap t
+addNames h c = map (\(p, v) -> (concatMap (findNames p) (c:catMaybes (map snd h)), p, v)) h
+  where
+    findNames :: IsNamedEnv t => PHeapPointer t -> PClosure t -> [Name]
+    findNames p (Closure _ e) = map fst $ filter (\(n, p') -> p == p') $ eToList e
+
+selectNames :: NHeap t -> [(PHeapPointer t, Name)]
+selectNames = go []
+  where go :: [Name] -> NHeap t -> [(PHeapPointer t, Name)]
+        go acc [] = []
+        go acc ((ns, p, _):rest) =
+          let candidates = ns ++ [pack (unpack (head ns) ++ show k) | k <- ([0..] :: [Int])]
+              n = case filter (\n' -> not (n' `elem` acc)) candidates of
+                    []    -> error "Bug: empty list of candidates"
+                    (n:_) -> n
+          in (p,n):go (n:acc) rest
+
+getSelectedName :: IsNamedEnv t => [(PHeapPointer t, Name)] -> t (PHeapPointer t) -> Name -> Name
+getSelectedName m e n = case eLookup n e of
+  Nothing -> error ("Bug: environment lookup failed: " ++ show n)
+  (Just p) -> case lookup p m of
+    Nothing -> error "Bug: selection lookup failed"
+    (Just n) -> n
+
+mapFreeNamed :: (Name -> Name) -> Term -> Term
+mapFreeNamed f = go []
+  where
+    rename ctx n = if n `elem` ctx then n else f n
+
+    go ctx (Var x)   = Var (rename ctx x)
+    go ctx (Lam x t) = Lam x (go (x:ctx) t)
+    go ctx (App t x) = App (go ctx t) (rename ctx x)
+    go ctx (Let x t) = let ctx' = map fst x ++ ctx in
+      Let (map (\(n,t') -> (n,go ctx' t')) x) (go ctx' t)
+
+getHeapClosure :: IsNamedEnv t => PHeap t -> [(PHeapPointer t, Name)] -> Name -> PClosure t
+getHeapClosure h m n = case lookup n (map swap m) of
+  Nothing -> error "Bug: selection lookup failed"
   (Just p) -> case lookup p h of
-    (Just (Just c)) -> closureToTerm h c
-    _               -> Var x
-closureToTerm h (Closure (Lam x t) e) = Lam x $ closureToTerm h (Closure t e)
-closureToTerm h (Closure (App t x) e) =
-  appT (closureToTerm h (Closure t e)) (closureToTerm h (Closure (Var x) e))
-closureToTerm h (Closure (Let x t) e) =
-  Let (map (\(n, t) -> (n, closureToTerm h (Closure t e))) x) (closureToTerm h (Closure t e))
+    Nothing -> error "Bug: heap lookup failed"
+    (Just Nothing) -> error "Bug: black hole"
+    (Just (Just c)) -> c
+
+closureToTerm :: IsNamedEnv t => PHeap t -> [(PHeapPointer t, Name)] -> PClosure t -> Term
+closureToTerm h m (Closure t e) = let
+    mapT = mapFreeNamed (getSelectedName m e)
+    t' = mapT t
+    ns = freeVars t'
+  in if null ns then t'
+  else Let (map (\n -> (n, case getHeapClosure h m n of (Closure t _) -> mapT t)) ns) t'
+
+overrideHeap h (p, c) = (p, c) : filter (\(p',_) -> p /= p') h
 
 stateToTerm :: IsNamedEnv t => PState t -> Term
-stateToTerm (h, (c, [])) = closureToTerm h c
-stateToTerm (h, (Closure t e, P p : s)) = case lookup p h of
-  ((Just (Just c))) -> stateToTerm (h, (Closure (closureToTerm h c) e, s))
+stateToTerm (h, (c, [])) = closureToTerm h (selectNames (addNames h c)) c
+stateToTerm (h, (Closure t e, P p@(Ref a) : s)) = case lookup p h of
+  ((Just (Just c))) -> let n = "addr" ++ show a
+    in stateToTerm (h, (Closure (App t (pack n)) (addToEnv (pack n) p e), s))
   _                 -> error "Bug: Black hole or not in heap"
 stateToTerm (h, (c          , H p : s)) =
-  stateToTerm ((p, Just c) : filter (\(p',_) -> p /= p') h, (c, s))
+  stateToTerm (overrideHeap h (p, Just c), (c, s))
 
 stateToTerm' :: ToPureState s Trie => s -> IO Term
 stateToTerm' s = stateToTerm <$> (toPureState s :: IO (PState Trie))
 
 runHnf :: ToPureState s Trie => IsLAM IO e s Term -> Term -> IO Term
 runHnf l = evalHnf l stateToTerm'
+
+runHnfPrint :: ToPureState s Trie => IsLAM IO e s Term -> Term -> IO ()
+runHnfPrint l t = runHnf l t >>= print
+
+runHnfPrintTrace :: ToPureState s Trie => IsLAM IO e s Term -> Term -> IO ()
+runHnfPrintTrace l t = runTrace l t >>= traverse stateToTerm' >>= print
 
 --------------------------------------------------------------------------------
 -- Other

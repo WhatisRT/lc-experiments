@@ -30,6 +30,8 @@ class IsNamedEnv t where
   eFromList :: [(Name, a)] -> t a
   eLookup   :: Name -> t a -> Maybe a
   eLookup n e = Data.List.lookup n (eToList e)
+  addToEnv  :: Name -> a -> t a -> t a
+  addToEnv n a e = eFromList ((n,a):eToList e)
 
 -- If we don't have names, we invent some
 instance IsNamedEnv [] where
