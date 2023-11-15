@@ -203,8 +203,8 @@ freeVars = nub . go []
 
 -- | DeBruijn version of 'freeVars'.
 --
--- prop> length (freeIxs (toDBTerm t)) = length (freeVars t)
--- prop> length ctx = maximum (freeIxs t) + 1 => freeVars (fromDBTermCtx ctx t) = ctx
+-- prop> length (freeIxs (toDBTerm id t)) = length (freeVars t)
+-- prop> length ctx = maximum (freeIxs t) + 1 => freeVars (fromDBTermCtx id ctx t) = ctx
 freeIxs :: DBTerm -> [Int]
 freeIxs = nub . sort . helper
   where
@@ -219,7 +219,7 @@ freeIxs = nub . sort . helper
 
 -- | Apply some transformation to the free variables.
 --
--- prop> map f (freeVars t) = freeVars (mapFree t)
+-- prop> map f (freeIxs t) = freeIxs (mapFree f t)
 mapFree :: (Int -> Int) -> DBTerm -> DBTerm
 mapFree f = go 0
   where

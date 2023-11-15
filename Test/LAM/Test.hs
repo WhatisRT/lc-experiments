@@ -32,6 +32,9 @@ instance Arbitrary Term where
   -- FIXME: doesn't work because of missing Arbitrary Void
   --shrink = filter isClosed . genericShrink
 
+instance Arbitrary DBTerm where
+  arbitrary = (toDBTerm id) <$> (arbitrary :: Gen Term)
+
 roundtrip f g t = t == f (g t)
 
 roundtripToDB :: Term -> Bool
@@ -42,3 +45,21 @@ roundtripToDBT0 = roundtrip termFromDBTTerm0 termToDBTTerm0
 
 roundtripToDBT1 :: Term -> Bool
 roundtripToDBT1 = roundtrip termFromDBTTerm1 termToDBTTerm1
+
+freeIxsProp1 :: Term -> Bool
+freeIxsProp1 t = length ( freeIxs (toDBTerm id t) ) == length ( freeVars t)
+
+freeIxsProp2 :: [Name] -> DBTerm -> Bool
+freeIxsProp2 ctx t | (ctx == [] && freeIxs t == [] ) ||
+                     (freeIxs t /= [] && length ctx == maximum (freeIxs t) + 1 )
+                               = freeVars (fromDBTermCtx id ctx t) == ctx 
+                   | otherwise = True
+
+freeIxsProp3 :: DBTerm -> Bool
+freeIxsProp3 t = all (\ x -> x >= 0) (freeIxs t)
+
+freeVarsProp :: Name -> Term -> Bool
+freeVarsProp x t = freeVars (Lam x t) == filter (\ y -> y /= x) (freeVars t)
+
+mapFreeProp :: (Int -> Int) -> DBTerm -> Bool
+mapFreeProp f t = map f (freeIxs t) == freeIxs (mapFree f t)
